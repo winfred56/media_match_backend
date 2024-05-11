@@ -1,0 +1,53 @@
+
+*.py[co]
+*.DS_STORE
+
+/venv/
+db.sqlite3
+datadump.json
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+
+# Installer logs
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+#Translations
+*.mo
+
+#Mr Developer
+.mr.developer.cfg
+
+*.code-workspace
