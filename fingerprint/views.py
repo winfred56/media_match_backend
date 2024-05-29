@@ -2,16 +2,26 @@ import json
 import os
 import subprocess
 import tempfile
+from time import time
+
 
 from rest_framework.decorators import api_view
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework.generics import *
-
+from scipy.ndimage import iterate_structure, generate_binary_structure, maximum_filter, binary_erosion
 
 from fingerprint.models import AudioVideoFile
 from fingerprint.serializers import AudioVideoFileSerializer
+
+from scipy.ndimage.filters import maximum_filter
+from scipy.ndimage.morphology import binary_erosion, generate_binary_structure, iterate_structure
+import matplotlib.mlab as mlab
+import numpy as np
+import hashlib
+
+from fingerprint.unsupported_file_formats import not_allowed_extensions
 
 
 # Create your views here.
@@ -31,6 +41,11 @@ def add_media(request):
 
         media_file = request.FILES['file']
         print(media_file)
+        file_name = media_file.name
+        file_extension = media_file.name.split('.')[-1].lower()
+        if file_extension in not_allowed_extensions:
+            print(file_extension)
+            return JsonResponse({'error': 'Unsupported file format.'}, status=400)
 
         temp_file_path = None  # Initialize temp_file_path
 
@@ -62,12 +77,13 @@ def add_media(request):
                         codec_type = first_stream['codec_type']
 
                 # Respond with extracted information
-                return JsonResponse({'media_type': codec_type, 'metadata': metadata}, status=200)
+                return JsonResponse({'file_name': file_name, 'media_type': codec_type, 'metadata': metadata}, status=200)
 
             else:
                 return JsonResponse({'error': 'Unsupported file format.'}, status=400)
 
         except Exception as e:
+            print(str(e))
             return JsonResponse({'error': str(e)}, status=500)
 
         finally:
