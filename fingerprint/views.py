@@ -15,7 +15,10 @@ from fingerprint.recognize_video import recognize_video
 from fingerprint.recognize_audio import recognize_audio
 from fingerprint.serializers import AudioVideoFileSerializer
 from fingerprint.unsupported_file_formats import not_allowed_extensions
-from fingerprint.video_fingerprint import fingerprint_video_file, get_video_duration
+from fingerprint.video_fingerprint import video_fingerprint, get_video_duration
+
+
+# from fingerprint.video_fingerprint import fingerprint_video_file, get_video_duration
 
 
 @csrf_exempt
@@ -62,7 +65,6 @@ def find(request):
 
     finally:
         os.unlink(temp_file_path)
-
 
 
 @csrf_exempt
@@ -112,12 +114,12 @@ def add_media(request):
 
                 # Fingerprint the file
                 if codec_type == 'video':
-                    fingerprint_data = fingerprint_video_file(temp_file_path)
+                    # fingerprint_data = fingerprint_video_file(temp_file_path)
+                    fingerprint_data = video_fingerprint(temp_file_path)
                 else:
                     fingerprint_data = fingerprint_audio_file(temp_file_path)
 
-                print(f'Total Items to be saved: {len(fingerprint_data)}')
-                print('Saving to Database')
+                print(f'Total fingerprints to be saved: {len(fingerprint_data)}')
 
                 # Save the audio file metadata to the database
                 media_file = AudioVideoFile.objects.create(
@@ -125,9 +127,12 @@ def add_media(request):
                     source=codec_type,
                     duration_seconds=get_duration(codec_type, temp_file_path)
                 )
-
-                # Save the fingerprint hashes to the database asynchronously
-                threading.Thread(target=save_fingerprints_to_db, args=(fingerprint_data, media_file)).start()
+                if codec_type == 'video':
+                    # Save the video fingerprint hashes to the database asynchronously
+                    threading.Thread(target=save_fingerprints_to_db, args=(fingerprint_data, media_file, False)).start()
+                else:
+                    # Save the audio fingerprint hashes to the database asynchronously
+                    threading.Thread(target=save_fingerprints_to_db, args=(fingerprint_data, media_file, True)).start()
 
                 # Respond with extracted information and fingerprint data
                 return JsonResponse({
@@ -158,15 +163,37 @@ def get_duration(codec_type, file_path):
         return get_audio_duration(file_path)
 
 
-def save_fingerprints_to_db(fingerprint_data, audio_file):
+# def save_fingerprints_to_db(fingerprint_data, audio_file):
+#     try:
+#         segment_hashes = []
+#         for hash_value, start_time_seconds in fingerprint_data:
+#             segment_hashes.append(SegmentHash.objects.create(
+#                 audio_video_file=audio_file,
+#                 hash_value=hash_value,
+#                 start_time_seconds=start_time_seconds
+#             ))
+#         SegmentHash.objects.bulk_create(segment_hashes, ignore_conflicts=True)
+#     except IntegrityError as e:
+#         print(f"Error occurred during bulk create: {e}")
+
+
+def save_fingerprints_to_db(fingerprint_data, audio_file, is_audio):
     try:
         segment_hashes = []
-        for hash_value, start_time_seconds in fingerprint_data:
-            segment_hashes.append(SegmentHash.objects.create(
-                audio_video_file=audio_file,
-                hash_value=hash_value,
-                start_time_seconds=start_time_seconds
-            ))
+        for item in fingerprint_data:
+            if is_audio:
+                hash_value, start_time_seconds = item
+                segment_hashes.append(SegmentHash(
+                    audio_video_file=audio_file,
+                    hash_value=hash_value,
+                    # start_time_seconds=start_time_seconds
+                ))
+            else:
+                features = item
+                segment_hashes.append(SegmentHash(
+                    audio_video_file=audio_file,
+                    features=','.join(map(str, features))
+                ))
         SegmentHash.objects.bulk_create(segment_hashes, ignore_conflicts=True)
     except IntegrityError as e:
         print(f"Error occurred during bulk create: {e}")
