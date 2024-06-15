@@ -112,28 +112,6 @@
 #     return hashlib.sha1(frame_bytes).hexdigest()
 #
 #
-# # def combine_hashes(audio_hashes, video_frames):
-# #     """
-# #     Combine audio hashes with corresponding video frame hashes.
-# #
-# #     :param audio_hashes: List of audio hashes.
-# #     :param video_frames: List of video frame hashes.
-# #     :return: List of combined hashes.
-# #     """
-# #     combined_hashes = []
-# #     # print(f"Inside combine_hashes function: {len(audio_hashes)} audio hashes and {len(video_frames)} video frames")
-# #
-# #     # Determine the minimum length to prevent out of index errors
-# #     min_length = min(len(audio_hashes), len(video_frames))
-# #     # print(f"Min length for combining: {min_length}")
-# #
-# #     for i in range(min_length):
-# #         audio_hash, timestamp = audio_hashes[i]
-# #         video_frame_hash = video_frames[i % len(video_frames)]
-# #         combined_hash = hashlib.sha1(f"{audio_hash}|{video_frame_hash}".encode('utf-8')).hexdigest()
-# #         combined_hashes.append((combined_hash, timestamp))
-# #
-# #     return combined_hashes
 # def combine_hashes(audio_hashes, video_frames):
 #     """
 #     Combine audio hashes with corresponding video frame hashes.
@@ -143,7 +121,11 @@
 #     :return: List of combined hashes.
 #     """
 #     combined_hashes = []
+#     # print(f"Inside combine_hashes function: {len(audio_hashes)} audio hashes and {len(video_frames)} video frames")
+#
+#     # Determine the minimum length to prevent out of index errors
 #     min_length = min(len(audio_hashes), len(video_frames))
+#     # print(f"Min length for combining: {min_length}")
 #
 #     for i in range(min_length):
 #         audio_hash, timestamp = audio_hashes[i]
@@ -152,62 +134,44 @@
 #         combined_hashes.append((combined_hash, timestamp))
 #
 #     return combined_hashes
-#
-#
-
-
-# def video_fingerprint(video_path):
-#     video = VideoFileClip(video_path)
-#     fingerprints = set()
-#
-#     for i, frame in enumerate(video.iter_frames(fps=1)):  # Adjust fps as needed
-#         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-#         resized_frame = cv2.resize(gray_frame, (32, 32))  # Resize for faster processing
-#         hash_value = sha256(resized_frame.tobytes()).hexdigest()
-#         fingerprints.add((hash_value, i))  # Include the timestamp (frame number / fps)
-#
-#     return list(fingerprints)
-#
-#
-
-
+import hashlib
+from hashlib import sha256
 
 import cv2
-import numpy as np
-from keras import Model
-from keras.src.applications.vgg16 import preprocess_input, VGG16
-from moviepy.editor import VideoFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 
-# from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
-# from tensorflow.keras.models import Model
+def combine_hashes(audio_hashes, video_frames):
+    """
+    Combine audio hashes with corresponding video frame hashes.
+
+    :param audio_hashes: List of audio hashes.
+    :param video_frames: List of video frame hashes.
+    :return: List of combined hashes.
+    """
+    combined_hashes = []
+    min_length = min(len(audio_hashes), len(video_frames))
+
+    for i in range(min_length):
+        audio_hash, timestamp = audio_hashes[i]
+        video_frame_hash = video_frames[i % len(video_frames)]
+        combined_hash = hashlib.sha1(f"{audio_hash}|{video_frame_hash}".encode('utf-8')).hexdigest()
+        combined_hashes.append((combined_hash, timestamp))
+
+    return combined_hashes
 
 
-def extract_features_from_frame(frame, model):
-    # Convert frame to RGB
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # Resize frame to the input size of the model
-    resized_frame = cv2.resize(rgb_frame, (224, 224))
-    # Preprocess the frame
-    preprocessed_frame = preprocess_input(np.expand_dims(resized_frame, axis=0))
-    # Extract features
-    features = model.predict(preprocessed_frame)
-    return features.flatten()
-
-
-def video_fingerprint(video_path, fps=1):
-    # Load pre-trained VGG16 model + higher level layers
-    base_model = VGG16(weights='imagenet')
-    model = Model(inputs=base_model.input, outputs=base_model.get_layer('fc1').output)
-
+def video_fingerprint(video_path):
     video = VideoFileClip(video_path)
-    fingerprints = []
+    fingerprints = set()
 
-    for frame in video.iter_frames(fps=fps):
-        features = extract_features_from_frame(frame, model)
-        fingerprints.append(features)
+    for i, frame in enumerate(video.iter_frames(fps=1)):  # Adjust fps as needed
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        resized_frame = cv2.resize(gray_frame, (32, 32))  # Resize for faster processing
+        hash_value = sha256(resized_frame.tobytes()).hexdigest()
+        fingerprints.add((hash_value, i))  # Include the timestamp (frame number / fps)
 
-    return np.array(fingerprints)
+    return list(fingerprints)
 
 
 def get_video_duration(file_path):
