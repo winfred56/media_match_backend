@@ -5,6 +5,7 @@ from . import views
 app_name = 'fingerprint'
 
 urlpatterns = [
+    path('', views.welcome, name='welcome'),
     # Add new media files to database
     path('add/', views.add_media, name='audio_video_create'),
     # Search database to find a media that matches one from request body

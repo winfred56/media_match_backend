@@ -24,6 +24,17 @@ from fingerprint.video_fingerprint import video_fingerprint, get_video_duration
 
 @csrf_exempt
 @api_view(['GET'])
+def welcome(request):
+    try:
+        return JsonResponse({'data': 'Welcome to media match'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    finally:
+        gc.collect()
+
+
+@csrf_exempt
+@api_view(['GET'])
 def find(request):
     if 'file' not in request.FILES:
         return JsonResponse({'error': 'No file was submitted.'}, status=400)
