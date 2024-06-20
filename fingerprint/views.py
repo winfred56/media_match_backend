@@ -1,5 +1,6 @@
 import json
 import os
+import gc
 import subprocess
 import tempfile
 import threading
@@ -65,6 +66,7 @@ def find(request):
 
     finally:
         os.unlink(temp_file_path)
+        gc.collect() # Trigger garbage collection to free up memory
 
 
 @csrf_exempt
@@ -148,6 +150,7 @@ def add_media(request):
         finally:
             # Clean up: Remove the temporary file
             os.unlink(temp_file_path)
+            gc.collect()  # Trigger garbage collection to free up memory
 
     else:
         return JsonResponse({'error': 'Expecting a POST request.'}, status=405)
