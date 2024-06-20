@@ -66,7 +66,7 @@ def find(request):
 
     finally:
         os.unlink(temp_file_path)
-        gc.collect() # Trigger garbage collection to free up memory
+        gc.collect()  # Trigger garbage collection to free up memory
 
 
 @csrf_exempt
@@ -83,7 +83,7 @@ def add_media(request):
         file_name = media_file.name
         file_extension = media_file.name.split('.')[-1].lower()
         if file_extension in not_allowed_extensions:
-            print(file_extension)
+            print(f"Upload file as ${file_extension} file extension ")
             return JsonResponse({'error': 'Unsupported file format.'}, status=400)
 
         try:
@@ -112,7 +112,7 @@ def add_media(request):
                     first_stream = metadata['streams'][0]
                     if 'codec_type' in first_stream:
                         codec_type = first_stream['codec_type']
-                        print('codec_type: ', codec_type)
+                        print('uploaded file is a/an', codec_type)
 
                 # Fingerprint the file
                 if codec_type == 'video':
@@ -136,6 +136,7 @@ def add_media(request):
                     # Save the audio fingerprint hashes to the database asynchronously
                     threading.Thread(target=save_fingerprints_to_db, args=(fingerprint_data, media_file, True)).start()
 
+                print(f"{file_name} saved to database successfully")
                 # Respond with extracted information and fingerprint data
                 return JsonResponse({
                     'file_name': file_name,

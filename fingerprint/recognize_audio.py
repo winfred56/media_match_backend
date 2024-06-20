@@ -30,7 +30,7 @@ def find_matching_fingerprints(uploaded_fingerprints):
         matched_segments = SegmentHash.objects.filter(hash_value=hash_value)
         if matched_segments.exists():
             matches.extend(matched_segments)
-    print(matches)
+    print(f"Found {len(matches)} matches")
     return matches
 
 
