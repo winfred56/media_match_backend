@@ -1,6 +1,6 @@
+import gc
 import json
 import os
-import gc
 import subprocess
 import tempfile
 import threading
@@ -12,12 +12,11 @@ from rest_framework.decorators import api_view
 
 from fingerprint.audio_fingerprint import fingerprint_audio_file, get_audio_duration
 from fingerprint.models import SegmentHash, AudioVideoFile
-from fingerprint.recognize_video import recognize_video
 from fingerprint.recognize_audio import recognize_audio
+from fingerprint.recognize_video import recognize_video
 from fingerprint.serializers import AudioVideoFileSerializer
 from fingerprint.unsupported_file_formats import not_allowed_extensions
 from fingerprint.video_fingerprint import video_fingerprint, get_video_duration
-
 
 # from fingerprint.video_fingerprint import fingerprint_video_file, get_video_duration
 
@@ -80,8 +79,6 @@ def find(request):
         gc.collect()  # Trigger garbage collection to free up memory
 
 
-@csrf_exempt
-@api_view(['POST'])
 def add_media(request):
     if request.method == 'POST':
         # Check for missing file
@@ -125,33 +122,12 @@ def add_media(request):
                         codec_type = first_stream['codec_type']
                         print('uploaded file is a/an', codec_type)
 
-                # Fingerprint the file
-                if codec_type == 'video':
-                    # fingerprint_data = fingerprint_video_file(temp_file_path)
-                    fingerprint_data = video_fingerprint(temp_file_path)
-                else:
-                    fingerprint_data = fingerprint_audio_file(temp_file_path)
+                # Fingerprint the file in a separate thread
+                threading.Thread(target=fingerprint_and_save, args=(temp_file_path, file_name, codec_type)).start()
 
-                print(f'Total fingerprints to be saved: {len(fingerprint_data)}')
-
-                # Save the audio file metadata to the database
-                media_file = AudioVideoFile.objects.create(
-                    file_name=file_name,
-                    source=codec_type,
-                    duration_seconds=get_duration(codec_type, temp_file_path)
-                )
-                if codec_type == 'video':
-                    # Save the video fingerprint hashes to the database asynchronously
-                    threading.Thread(target=save_fingerprints_to_db, args=(fingerprint_data, media_file, False)).start()
-                else:
-                    # Save the audio fingerprint hashes to the database asynchronously
-                    threading.Thread(target=save_fingerprints_to_db, args=(fingerprint_data, media_file, True)).start()
-
-                print(f"{file_name} saved to database successfully")
-                # Respond with extracted information and fingerprint data
+                # Respond immediately
                 return JsonResponse({
                     'file_name': file_name,
-                    # 'metadata': metadata,
                 }, status=200)
             else:
                 return JsonResponse({'error': 'Unsupported file format.'}, status=400)
@@ -168,6 +144,32 @@ def add_media(request):
         return JsonResponse({'error': 'Expecting a POST request.'}, status=405)
 
 
+def fingerprint_and_save(temp_file_path, file_name, codec_type):
+    try:
+        # Fingerprint the file
+        if codec_type == 'video':
+            fingerprint_data = video_fingerprint(temp_file_path)
+        else:
+            fingerprint_data = fingerprint_audio_file(temp_file_path)
+
+        # Save the audio file metadata to the database
+        media_file = AudioVideoFile.objects.create(
+            file_name=file_name,
+            source=codec_type,
+            duration_seconds=get_duration(codec_type, temp_file_path)
+        )
+
+        # Save the fingerprint hashes to the database
+        save_fingerprints_to_db(fingerprint_data, media_file, codec_type == 'audio')
+
+    except Exception as e:
+        print(f"Error during fingerprinting and saving: {e}")
+
+    finally:
+        os.unlink(temp_file_path)
+        gc.collect()  # Trigger garbage collection to free up memory
+
+
 def get_duration(codec_type, file_path):
     # Check the file type based on its extension or other criteria
     if codec_type == 'video':
@@ -176,6 +178,27 @@ def get_duration(codec_type, file_path):
     else:
         # Audio file, use another function to get the duration
         return get_audio_duration(file_path)
+
+
+def save_fingerprints_to_db(fingerprint_data, media_file, is_audio):
+    try:
+        segment_hashes = []
+        for item in fingerprint_data:
+            if is_audio:
+                hash_value, start_time_seconds = item
+                segment_hashes.append(SegmentHash(
+                    audio_video_file=media_file,
+                    hash_value=hash_value,
+                ))
+            else:
+                features = item
+                segment_hashes.append(SegmentHash(
+                    audio_video_file=media_file,
+                    features=','.join(map(str, features))
+                ))
+        SegmentHash.objects.bulk_create(segment_hashes, ignore_conflicts=True)
+    except IntegrityError as e:
+        print(f"Error occurred during bulk create: {e}")
 
 
 # def save_fingerprints_to_db(fingerprint_data, audio_file):
@@ -190,25 +213,3 @@ def get_duration(codec_type, file_path):
 #         SegmentHash.objects.bulk_create(segment_hashes, ignore_conflicts=True)
 #     except IntegrityError as e:
 #         print(f"Error occurred during bulk create: {e}")
-
-
-def save_fingerprints_to_db(fingerprint_data, audio_file, is_audio):
-    try:
-        segment_hashes = []
-        for item in fingerprint_data:
-            if is_audio:
-                hash_value, start_time_seconds = item
-                segment_hashes.append(SegmentHash(
-                    audio_video_file=audio_file,
-                    hash_value=hash_value,
-                    # start_time_seconds=start_time_seconds
-                ))
-            else:
-                features = item
-                segment_hashes.append(SegmentHash(
-                    audio_video_file=audio_file,
-                    features=','.join(map(str, features))
-                ))
-        SegmentHash.objects.bulk_create(segment_hashes, ignore_conflicts=True)
-    except IntegrityError as e:
-        print(f"Error occurred during bulk create: {e}")
