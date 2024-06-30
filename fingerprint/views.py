@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import threading
+from datetime import timedelta
 
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -36,43 +37,53 @@ def welcome(request):
 @csrf_exempt
 @api_view(['GET'])
 def analytics(request):
-    from datetime import timedelta
+    try:
+        now = timezone.now()
+        last_week = now - timedelta(days=7)
+        last_month = now - timedelta(days=30)
 
-    now = timezone.now()
-    last_week = now - timedelta(days=7)
-    last_month = now - timedelta(days=30)
+        find_requests = EndpointUsage.objects.filter(endpoint='find', timestamp__gte=last_month)
+        add_media_requests = EndpointUsage.objects.filter(endpoint='add_media', timestamp__gte=last_month)
 
-    find_requests = EndpointUsage.objects.filter(endpoint='find', timestamp__gte=last_month)
-    add_media_requests = EndpointUsage.objects.filter(endpoint='add_media', timestamp__gte=last_month)
+        find_requests_serialized = EndpointUsageSerializer(find_requests, many=True).data
+        add_media_requests_serialized = EndpointUsageSerializer(add_media_requests, many=True).data
 
-    find_requests_serialized = EndpointUsageSerializer(find_requests, many=True).data
-    add_media_requests_serialized = EndpointUsageSerializer(add_media_requests, many=True).data
+        # Convert JSON strings back to JSON objects for detailed analytics
+        for req in find_requests_serialized:
+            if req['data']:
+                try:
+                    req['data'] = json.loads(req['data'])
+                except json.JSONDecodeError:
+                    req['data'] = None
 
-    # Convert JSON strings back to JSON objects for detailed analytics
-    for request in find_requests_serialized:
-        if request['data']:
-            request['data'] = json.loads(request['data'])
+        for req in add_media_requests_serialized:
+            if req['data']:
+                try:
+                    req['data'] = json.loads(req['data'])
+                except json.JSONDecodeError:
+                    req['data'] = None
 
-    for request in add_media_requests_serialized:
-        if request['data']:
-            request['data'] = json.loads(request['data'])
+        response_data = {
+            'last_month': {
+                'find_requests': find_requests.count(),
+                'add_media_requests': add_media_requests.count(),
+            },
+            'today': {
+                'find_requests': find_requests.filter(timestamp__date=now.date()).count(),
+                'add_media_requests': add_media_requests.filter(timestamp__date=now.date()).count(),
+            },
+            'detailed': {
+                'find_requests': list(find_requests.values('timestamp', 'status', 'data')),
+                'add_media_requests': list(add_media_requests.values('timestamp', 'status', 'data')),
+            },
+        }
 
-    response_data = {
-        'last_month': {
-            'find_requests': find_requests.count(),
-            'add_media_requests': add_media_requests.count(),
-        },
-        'today': {
-            'find_requests': find_requests.filter(timestamp__date=now.date()).count(),
-            'add_media_requests': add_media_requests.filter(timestamp__date=now.date()).count(),
-        },
-        'detailed': {
-            'find_requests': list(find_requests.values('timestamp', 'status', 'data')),
-            'add_media_requests': list(add_media_requests.values('timestamp', 'status', 'data')),
-        },
-    }
+        return JsonResponse(response_data, status=200)
 
-    return JsonResponse(response_data, status=200)
+    except Exception as e:
+        error_message = f"Error retrieving analytics: {str(e)}"
+        print(error_message)
+        return JsonResponse({'error': error_message}, status=500)
 
 
 @csrf_exempt
