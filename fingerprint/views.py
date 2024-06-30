@@ -7,14 +7,15 @@ import threading
 
 from django.db import IntegrityError
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
 from fingerprint.audio_fingerprint import fingerprint_audio_file, get_audio_duration
-from fingerprint.models import SegmentHash, AudioVideoFile
+from fingerprint.models import SegmentHash, AudioVideoFile, EndpointUsage
 from fingerprint.recognize_audio import recognize_audio
 from fingerprint.recognize_video import recognize_video
-from fingerprint.serializers import AudioVideoFileSerializer
+from fingerprint.serializers import AudioVideoFileSerializer, EndpointUsageSerializer
 from fingerprint.unsupported_file_formats import not_allowed_extensions
 from fingerprint.video_fingerprint import video_fingerprint, get_video_duration
 
@@ -34,8 +35,51 @@ def welcome(request):
 
 @csrf_exempt
 @api_view(['GET'])
+def analytics(request):
+    from datetime import timedelta
+
+    now = timezone.now()
+    last_week = now - timedelta(days=7)
+    last_month = now - timedelta(days=30)
+
+    find_requests = EndpointUsage.objects.filter(endpoint='find', timestamp__gte=last_month)
+    add_media_requests = EndpointUsage.objects.filter(endpoint='add_media', timestamp__gte=last_month)
+
+    find_requests_serialized = EndpointUsageSerializer(find_requests, many=True).data
+    add_media_requests_serialized = EndpointUsageSerializer(add_media_requests, many=True).data
+
+    # Convert JSON strings back to JSON objects for detailed analytics
+    for request in find_requests_serialized:
+        if request['data']:
+            request['data'] = json.loads(request['data'])
+
+    for request in add_media_requests_serialized:
+        if request['data']:
+            request['data'] = json.loads(request['data'])
+
+    response_data = {
+        'last_month': {
+            'find_requests': find_requests.count(),
+            'add_media_requests': add_media_requests.count(),
+        },
+        'today': {
+            'find_requests': find_requests.filter(timestamp__date=now.date()).count(),
+            'add_media_requests': add_media_requests.filter(timestamp__date=now.date()).count(),
+        },
+        'detailed': {
+            'find_requests': list(find_requests.values('timestamp', 'status', 'data')),
+            'add_media_requests': list(add_media_requests.values('timestamp', 'status', 'data')),
+        },
+    }
+
+    return JsonResponse(response_data, status=200)
+
+
+@csrf_exempt
+@api_view(['GET'])
 def find(request):
     if 'file' not in request.FILES:
+        log_endpoint_usage('find', 'failed', 'No file was submitted.')
         return JsonResponse({'error': 'No file was submitted.'}, status=400)
 
     media_file = request.FILES['file']
@@ -51,6 +95,7 @@ def find(request):
         result = subprocess.run(metadata_command, shell=True, capture_output=True, text=True)
 
         if result.returncode != 0:
+            log_endpoint_usage('find', 'failed', 'FFMpeg Failed to retrieve metadata.')
             return JsonResponse({'error': 'Failed to retrieve metadata.'}, status=500)
 
         metadata = json.loads(result.stdout)
@@ -67,11 +112,13 @@ def find(request):
         if result is not None:
             result_serialized = AudioVideoFileSerializer(result).data
 
+        log_endpoint_usage('find', 'successful', json.dumps(result_serialized))
         return JsonResponse({
             'file': result_serialized,
         }, status=200)
 
     except Exception as e:
+        log_endpoint_usage('find', 'failed', str(e))
         return JsonResponse({'error': str(e)}, status=500)
 
     finally:
@@ -83,6 +130,7 @@ def add_media(request):
     if request.method == 'POST':
         # Check for missing file
         if 'file' not in request.FILES:
+            log_endpoint_usage('add_media', 'failed', 'Expecting a POST request.')
             return JsonResponse({'error': 'No file was submitted.'}, status=400)
 
         media_file = request.FILES['file']
@@ -92,6 +140,7 @@ def add_media(request):
         file_extension = media_file.name.split('.')[-1].lower()
         if file_extension in not_allowed_extensions:
             print(f"Upload file as ${file_extension} file extension ")
+            log_endpoint_usage('add_media', 'failed', 'No file was submitted.')
             return JsonResponse({'error': 'Unsupported file format.'}, status=400)
 
         try:
@@ -109,6 +158,7 @@ def add_media(request):
 
             # Incase an error occurred trying to run subprocess
             if result.returncode != 0:
+                log_endpoint_usage('add_media', 'failed', 'FFMpeg Failed to retrieve metadata.')
                 return JsonResponse({'error': 'Failed to retrieve metadata.'}, status=500)
 
             # Parse JSON output from ffprobe
@@ -126,13 +176,16 @@ def add_media(request):
                 threading.Thread(target=fingerprint_and_save, args=(temp_file_path, file_name, codec_type)).start()
 
                 # Respond immediately
+                log_endpoint_usage('add_media', 'successful', f'File name: {file_name}')
                 return JsonResponse({
                     'file_name': file_name,
                 }, status=200)
             else:
+                log_endpoint_usage('add_media', 'failed', 'Unsupported file format.')
                 return JsonResponse({'error': 'Unsupported file format.'}, status=400)
 
         except Exception as e:
+            log_endpoint_usage('add_media', 'failed', str(e))
             return JsonResponse({'error': str(e)}, status=500)
 
         finally:
@@ -201,6 +254,13 @@ def save_fingerprints_to_db(fingerprint_data, media_file, is_audio):
         print(f"Error occurred during bulk create: {e}")
 
 
+def log_endpoint_usage(endpoint, status, data=None):
+    EndpointUsage.objects.create(
+        endpoint=endpoint,
+        status=status,
+        data=data,
+        timestamp=timezone.now()
+    )
 # def save_fingerprints_to_db(fingerprint_data, audio_file):
 #     try:
 #         segment_hashes = []
