@@ -191,8 +191,6 @@ def add_media(request):
             return JsonResponse({'error': str(e)}, status=500)
 
         finally:
-            # Clean up: Remove the temporary file
-            os.unlink(temp_file_path)
             gc.collect()  # Trigger garbage collection to free up memory
 
     else:
@@ -221,7 +219,10 @@ def fingerprint_and_save(temp_file_path, file_name, codec_type):
         print(f"Error during fingerprinting and saving: {e}")
 
     finally:
-        os.unlink(temp_file_path)
+        try:
+            os.unlink(temp_file_path)
+        except FileNotFoundError:
+            pass
         gc.collect()  # Trigger garbage collection to free up memory
 
 
