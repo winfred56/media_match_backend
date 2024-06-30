@@ -126,6 +126,8 @@ def find(request):
         gc.collect()  # Trigger garbage collection to free up memory
 
 
+@csrf_exempt
+@api_view(['POST'])
 def add_media(request):
     if request.method == 'POST':
         # Check for missing file
