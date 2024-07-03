@@ -4,7 +4,6 @@ import os
 import subprocess
 import tempfile
 import threading
-from datetime import timedelta
 
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -12,13 +11,15 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
+from analytics.models import EndpointUsage
 from fingerprint.audio_fingerprint import fingerprint_audio_file, get_audio_duration
-from fingerprint.models import SegmentHash, AudioVideoFile, EndpointUsage
+from fingerprint.models import SegmentHash, AudioVideoFile
 from fingerprint.recognize_audio import recognize_audio
 from fingerprint.recognize_video import recognize_video
-from fingerprint.serializers import AudioVideoFileSerializer, EndpointUsageSerializer
+from fingerprint.serializers import AudioVideoFileSerializer
 from fingerprint.unsupported_file_formats import not_allowed_extensions
 from fingerprint.video_fingerprint import video_fingerprint, get_video_duration
+
 
 # from fingerprint.video_fingerprint import fingerprint_video_file, get_video_duration
 
@@ -32,58 +33,6 @@ def welcome(request):
         return JsonResponse({'error': str(e)}, status=500)
     finally:
         gc.collect()
-
-
-@csrf_exempt
-@api_view(['GET'])
-def analytics(request):
-    try:
-        now = timezone.now()
-        last_week = now - timedelta(days=7)
-        last_month = now - timedelta(days=30)
-
-        find_requests = EndpointUsage.objects.filter(endpoint='find', timestamp__gte=last_month)
-        add_media_requests = EndpointUsage.objects.filter(endpoint='add_media', timestamp__gte=last_month)
-
-        find_requests_serialized = EndpointUsageSerializer(find_requests, many=True).data
-        add_media_requests_serialized = EndpointUsageSerializer(add_media_requests, many=True).data
-
-        # Convert JSON strings back to JSON objects for detailed analytics
-        for req in find_requests_serialized:
-            if req['data']:
-                try:
-                    req['data'] = json.loads(req['data'])
-                except json.JSONDecodeError:
-                    req['data'] = None
-
-        for req in add_media_requests_serialized:
-            if req['data']:
-                try:
-                    req['data'] = json.loads(req['data'])
-                except json.JSONDecodeError:
-                    req['data'] = None
-
-        response_data = {
-            'last_month': {
-                'find_requests': find_requests.count(),
-                'add_media_requests': add_media_requests.count(),
-            },
-            'today': {
-                'find_requests': find_requests.filter(timestamp__date=now.date()).count(),
-                'add_media_requests': add_media_requests.filter(timestamp__date=now.date()).count(),
-            },
-            'detailed': {
-                'find_requests': list(find_requests.values('timestamp', 'status', 'data')),
-                'add_media_requests': list(add_media_requests.values('timestamp', 'status', 'data')),
-            },
-        }
-
-        return JsonResponse(response_data, status=200)
-
-    except Exception as e:
-        error_message = f"Error retrieving analytics: {str(e)}"
-        print(error_message)
-        return JsonResponse({'error': error_message}, status=500)
 
 
 @csrf_exempt

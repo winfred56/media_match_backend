@@ -45,13 +45,3 @@ class SegmentHash(models.Model):
 
     class Meta:
         unique_together = ("audio_video_file", "hash_value", "features")
-
-
-class EndpointUsage(models.Model):
-    endpoint = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=50)
-    data = models.TextField(null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.endpoint} - {self.timestamp} - {self.status}"
