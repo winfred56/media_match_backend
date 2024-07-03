@@ -148,9 +148,16 @@ def average_requests_per_week(request):
 @api_view(['GET'])
 def top_matched_audios(request):
     try:
-        top_audios = AudioVideoFile.objects.filter(source='audio').annotate(
-            match_count=Count('segmenthash__hash_value')).order_by('-match_count')[:3]
-        serialized_audios = AudioVideoFileSerializer(top_audios, many=True).data
+        top_audios = EndpointUsage.objects.filter(endpoint='find', matched_file__source='audio').values('matched_file').annotate(
+            match_count=Count('matched_file')).order_by('-match_count')[:3]
+
+        serialized_audios = [
+            {
+                "file_name": AudioVideoFile.objects.get(id=audio['matched_file']).file_name,
+                "match_count": audio['match_count']
+            }
+            for audio in top_audios
+        ]
 
         return JsonResponse({'top_matched_audios': serialized_audios}, status=200)
     except Exception as e:
@@ -163,9 +170,17 @@ def top_matched_audios(request):
 @api_view(['GET'])
 def top_matched_videos(request):
     try:
-        top_videos = AudioVideoFile.objects.filter(source='video').annotate(
-            match_count=Count('segmenthash__hash_value')).order_by('-match_count')[:3]
-        serialized_videos = AudioVideoFileSerializer(top_videos, many=True).data
+        top_videos = EndpointUsage.objects.filter(endpoint='find', matched_file__source='video').values(
+            'matched_file').annotate(
+            match_count=Count('matched_file')).order_by('-match_count')[:3]
+
+        serialized_videos = [
+            {
+                "file_name": AudioVideoFile.objects.get(id=video['matched_file']).file_name,
+                "match_count": video['match_count']
+            }
+            for video in top_videos
+        ]
 
         return JsonResponse({'top_matched_videos': serialized_videos}, status=200)
     except Exception as e:
