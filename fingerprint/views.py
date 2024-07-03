@@ -71,8 +71,11 @@ def find(request):
 
         if result is not None:
             result_serialized = AudioVideoFileSerializer(result).data
+        else:
+            log_endpoint_usage('find', 'failed', str('unknown error'))
+            return JsonResponse({'error': str('unknown error')}, status=500)
 
-        log_endpoint_usage('find', 'successful', json.dumps(result_serialized))
+        log_endpoint_usage('find', 'successful', f'{result.file_name}', result)
         return JsonResponse({
             'file': result_serialized,
         }, status=200)
@@ -138,7 +141,7 @@ def add_media(request):
                 threading.Thread(target=fingerprint_and_save, args=(temp_file_path, file_name, codec_type)).start()
 
                 # Respond immediately
-                log_endpoint_usage('add_media', 'successful', f'File name: {file_name}')
+                log_endpoint_usage('add_media', 'successful', file_name)
                 return JsonResponse({
                     'file_name': file_name,
                 }, status=200)
@@ -217,11 +220,12 @@ def save_fingerprints_to_db(fingerprint_data, media_file, is_audio):
         print(f"Error occurred during bulk create: {e}")
 
 
-def log_endpoint_usage(endpoint, status, data=None):
+def log_endpoint_usage(endpoint, status, data=None, matched_file=None):
     EndpointUsage.objects.create(
         endpoint=endpoint,
         status=status,
         data=data,
+        matched_file= matched_file,
         timestamp=timezone.now()
     )
 # def save_fingerprints_to_db(fingerprint_data, audio_file):

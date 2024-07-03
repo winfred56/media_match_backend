@@ -25,11 +25,20 @@ def recognize_audio(uploaded_file_path):
 
 def find_matching_fingerprints(uploaded_fingerprints):
     matches = []
+    max_matches = 20  # Define the maximum number of matches to retrieve
+
     for hash_value, _ in uploaded_fingerprints:
-        # Query the database for this hash value
-        matched_segments = SegmentHash.objects.filter(hash_value=hash_value)
+        if len(matches) >= max_matches:
+            break
+
+        # Query the database for this hash value and limit to the first remaining matches needed
+        remaining_matches = max_matches - len(matches)
+        matched_segments = SegmentHash.objects.filter(hash_value=hash_value)[:remaining_matches]
+
         if matched_segments.exists():
-            matches.extend(matched_segments)
+            print(matched_segments)
+            matches.extend(list(matched_segments))
+
     print(f"Found {len(matches)} matches")
     return matches
 

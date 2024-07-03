@@ -40,6 +40,12 @@ class SegmentHash(models.Model):
     hash_value = models.CharField(max_length=255, null=True)
     features = models.TextField(null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['hash_value']),
+            models.Index(fields=['audio_video_file']),
+        ]
+
     def __str__(self):
         return f"{self.audio_video_file.file_name} - {self.hash_value or self.features}"
 
