@@ -72,8 +72,8 @@ def find(request):
         if result is not None:
             result_serialized = AudioVideoFileSerializer(result).data
         else:
-            log_endpoint_usage('find', 'failed', str('unknown error'))
-            return JsonResponse({'error': str('unknown error')}, status=500)
+            log_endpoint_usage('find', 'failed', 'No matches found.')
+            return JsonResponse({'error': 'No matches found.'}, status=404)
 
         log_endpoint_usage('find', 'successful', f'{result.file_name}', result)
         return JsonResponse({
