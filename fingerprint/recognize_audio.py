@@ -13,11 +13,12 @@ def recognize_audio(uploaded_file_path):
     matches = find_matching_fingerprints(uploaded_fingerprints)
 
     if matches:
+        print(matches)
         # Get the duration of the uploaded audio segment
         uploaded_segment_length = get_media_duration(uploaded_file_path)
 
         # Aggregate results and identify the media file
-        identified_media = identify_media_from_matches(matches, uploaded_segment_length)
+        identified_media = identify_audio_from_matches(matches, uploaded_segment_length)
         return identified_media
     else:
         return None
@@ -25,7 +26,7 @@ def recognize_audio(uploaded_file_path):
 
 def find_matching_fingerprints(uploaded_fingerprints):
     matches = []
-    max_matches = 20  # Define the maximum number of matches to retrieve
+    max_matches = 20  # maximum number of matches to retrieve
 
     for hash_value, _ in uploaded_fingerprints:
         if len(matches) >= max_matches:
@@ -43,7 +44,7 @@ def find_matching_fingerprints(uploaded_fingerprints):
     return matches
 
 
-def identify_media_from_matches(matches, uploaded_segment_length):
+def identify_audio_from_matches(matches, uploaded_segment_length):
     """
     Identify the media file from the list of matches.
 
@@ -56,6 +57,7 @@ def identify_media_from_matches(matches, uploaded_segment_length):
     """
     media_file_count = {}
     for match in matches:
+        print(f"Match: {match}")
         media_file = match.audio_video_file
         if media_file not in media_file_count:
             media_file_count[media_file] = 0
@@ -67,6 +69,7 @@ def identify_media_from_matches(matches, uploaded_segment_length):
     }
 
     identified_media = max(media_file_scores, key=media_file_scores.get)
+    print(f"Identified media: {identified_media}")
     return identified_media
 
 

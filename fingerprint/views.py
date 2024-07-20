@@ -200,21 +200,41 @@ def get_duration(codec_type, file_path):
 
 
 def save_fingerprints_to_db(fingerprint_data, media_file, is_audio):
+    global hash_value
     try:
         segment_hashes = []
         for item in fingerprint_data:
             if is_audio:
                 hash_value, start_time_seconds = item
+                print(f"Saving audio fingerprint: {hash_value}")  # Print audio fingerprints
                 segment_hashes.append(SegmentHash(
                     audio_video_file=media_file,
                     hash_value=hash_value,
                 ))
             else:
-                features = item
-                segment_hashes.append(SegmentHash(
-                    audio_video_file=media_file,
-                    features=','.join(map(str, features))
-                ))
+                # combined_value = item[0]
+                # hash_value, feature = combined_value.split(',')
+                # print(
+                #     f"Saving video fingerprint: hash_value={hash_value}, feature={feature}")  # Print video fingerprints
+                # segment_hashes.append(SegmentHash(
+                #     audio_video_file=media_file,
+                #     hash_value=hash_value,
+                #     # feature=int(feature)  # Convert feature to integer if necessary
+                # ))
+                if len(item) == 2:
+                    hash_value, feature = item
+                    print(f"Saving video fingerprint: {hash_value}, Feature: {feature}")  # Print video fingerprints
+                    segment_hashes.append(SegmentHash(
+                        audio_video_file=media_file,
+                        hash_value=hash_value,
+                        features=feature
+                    ))
+                else:
+                    segment_hashes.append(SegmentHash(
+                        audio_video_file=media_file,
+                        hash_value=hash_value,
+                        features=00
+                    ))
         SegmentHash.objects.bulk_create(segment_hashes, ignore_conflicts=True)
     except IntegrityError as e:
         print(f"Error occurred during bulk create: {e}")
@@ -225,7 +245,7 @@ def log_endpoint_usage(endpoint, status, data=None, matched_file=None):
         endpoint=endpoint,
         status=status,
         data=data,
-        matched_file= matched_file,
+        matched_file=matched_file,
         timestamp=timezone.now()
     )
 # def save_fingerprints_to_db(fingerprint_data, audio_file):
