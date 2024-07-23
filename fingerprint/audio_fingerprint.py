@@ -2,6 +2,7 @@ from time import time
 import hashlib
 import numpy as np
 import matplotlib.mlab as mlab
+from matplotlib import pyplot as plt
 from pydub import AudioSegment
 from scipy.ndimage import maximum_filter, binary_erosion, generate_binary_structure, iterate_structure
 
@@ -100,6 +101,8 @@ def generate_fingerprints(channel_samples, sampling_rate=DEFAULT_SAMPLING_RATE, 
     )[0]
 
     spectrogram_2D = 10 * np.log10(spectrogram_2D, out=np.zeros_like(spectrogram_2D), where=(spectrogram_2D != 0))
+    # Plot the spectrogram
+    plot_spectrogram(spectrogram_2D)
     peaks = find_2D_peaks(spectrogram_2D, min_amplitude=min_amplitude)
 
     return create_hashes_from_peaks(peaks, fan_value=fan_value)
@@ -163,3 +166,18 @@ def get_audio_duration(file_path):
     audio = AudioSegment.from_file(file_path)
     duration_seconds = len(audio) / 1000.0  # Duration in milliseconds, convert to seconds
     return duration_seconds
+
+
+def plot_spectrogram(spectrogram):
+    """
+    Plot the spectrogram.
+
+    :param spectrogram: 2D array representing the spectrogram.
+    """
+    plt.figure(figsize=(10, 6))
+    plt.imshow(spectrogram, aspect='auto', origin='lower', cmap='jet')
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('Spectrogram')
+    plt.ylabel('Frequency (Hz)')
+    plt.xlabel('Time (s)')
+    plt.show()
