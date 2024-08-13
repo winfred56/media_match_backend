@@ -5,6 +5,15 @@ import cv2
 from PIL import Image
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
+from fingerprint.audio_fingerprint import fingerprint_audio_file
+
+
+def extract_audio_from_video(video_path, output_audio_path):
+    video = VideoFileClip(video_path)
+    audio = video.audio
+    audio.write_audiofile(output_audio_path)
+    return output_audio_path
+
 
 def read_video_frames(file_path, frame_rate, target_resolution=(128, 72)):
     """
@@ -73,16 +82,18 @@ def combine_hashes(audio_hashes, video_frames):
 
 
 def video_fingerprint(video_path):
-    video = VideoFileClip(video_path)
-    fingerprints = set()
+    audio_from_video = extract_audio_from_video(video_path)
 
-    for i, frame in enumerate(video.iter_frames(fps=1)):  # Adjust fps as needed
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        resized_frame = cv2.resize(gray_frame, (32, 32))  # Resize for faster processing
-        hash_value = hashlib.sha256(resized_frame.tobytes()).hexdigest()
-        fingerprints.add((hash_value, i))  # Include the timestamp (frame number / fps)
+    # video = VideoFileClip(video_path)
+    # fingerprints = set()
+    #
+    # for i, frame in enumerate(video.iter_frames(fps=1)):  # Adjust fps
+    #     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #     resized_frame = cv2.resize(gray_frame, (32, 32))  # Resize for faster processing
+    #     hash_value = hashlib.sha256(resized_frame.tobytes()).hexdigest()
+    #     fingerprints.add((hash_value, i))  # Include the timestamp (frame number / fps)
 
-    return list(fingerprints)
+    return fingerprint_audio_file(audio_from_video)
 
 
 def get_video_duration(file_path):
