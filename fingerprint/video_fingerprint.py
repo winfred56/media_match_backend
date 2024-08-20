@@ -1,5 +1,6 @@
 import hashlib
 import io
+import subprocess
 
 import cv2
 from PIL import Image
@@ -8,11 +9,13 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 from fingerprint.audio_fingerprint import fingerprint_audio_file
 
 
-def extract_audio_from_video(video_path, output_audio_path):
-    video = VideoFileClip(video_path)
-    audio = video.audio
-    audio.write_audiofile(output_audio_path)
-    return output_audio_path
+def extract_audio_from_video(video_path):
+    # Create an output path for the audio file
+    audio_output_path = video_path.rsplit(".", 1)[0] + ".mp3"
+    ffmpeg_command = f"ffmpeg -i {video_path} -q:a 0 -map a {audio_output_path}"
+    # Run the FFmpeg command
+    subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
+    return audio_output_path
 
 
 def read_video_frames(file_path, frame_rate, target_resolution=(128, 72)):
