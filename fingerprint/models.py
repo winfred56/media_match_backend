@@ -14,6 +14,7 @@ class SegmentHash(models.Model):
     audio_video_file = models.ForeignKey(AudioVideoFile, on_delete=models.CASCADE)
     hash_value = models.CharField(max_length=1000, null=True)
     features = models.TextField(null=True, blank=True)
+    codec_type = models.CharField(max_length=10, default='audio')  # New field
 
     class Meta:
         indexes = [
