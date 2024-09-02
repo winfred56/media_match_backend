@@ -34,7 +34,7 @@ def find_matching_fingerprints(uploaded_fingerprints):
 
         # Query the database for this hash value and limit to the first remaining matches needed
         remaining_matches = max_matches - len(matches)
-        matched_segments = SegmentHash.objects.filter(hash_value=hash_value)[:remaining_matches]
+        matched_segments = SegmentHash.objects.filter(hash_value=hash_value, codec_type='audio')[:remaining_matches]
 
         if matched_segments.exists():
             print(matched_segments)

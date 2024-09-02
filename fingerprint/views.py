@@ -210,24 +210,21 @@ def save_fingerprints_to_db(fingerprint_data, media_file, is_audio):
                 segment_hashes.append(SegmentHash(
                     audio_video_file=media_file,
                     hash_value=hash_value,
+                    codec_type='audio'
                 ))
             else:
-                # combined_value = item[0]
-                # hash_value, feature = combined_value.split(',')
-                # print(
-                #     f"Saving video fingerprint: hash_value={hash_value}, feature={feature}")  # Print video fingerprints
-                # segment_hashes.append(SegmentHash(
-                #     audio_video_file=media_file,
-                #     hash_value=hash_value,
-                #     # feature=int(feature)  # Convert feature to integer if necessary
-                # ))
+                # combined_value = item[0] hash_value, feature = combined_value.split(',') print( f"Saving video
+                # fingerprint: hash_value={hash_value}, feature={feature}")  # Print video fingerprints
+                # segment_hashes.append(SegmentHash( audio_video_file=media_file, hash_value=hash_value,
+                # feature=int(feature)  # Convert feature to integer if necessary ))
                 if len(item) == 2:
                     hash_value, feature = item
                     print(f"Saving video fingerprint: {hash_value}, Feature: {feature}")  # Print video fingerprints
                     segment_hashes.append(SegmentHash(
                         audio_video_file=media_file,
                         hash_value=hash_value,
-                        features=feature
+                        features=feature,
+                        codec_type='video'
                     ))
                 else:
                     segment_hashes.append(SegmentHash(
