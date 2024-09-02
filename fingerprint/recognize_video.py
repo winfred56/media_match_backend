@@ -27,6 +27,27 @@ def recognize_video(query_video_path):
         return None
 
 
+# def find_matching_fingerprints(uploaded_fingerprints):
+#     print('find_matching_fingerprints  ==>')
+#     matches = []
+#     max_matches = 20  # maximum number of matches to retrieve
+#
+#     for hash_value, _ in uploaded_fingerprints:
+#         print(f"Looking for hash value: {hash_value}")
+#         if len(matches) >= max_matches:
+#             break
+#
+#         # Query the database for this hash value and limit to the first remaining matches needed
+#         remaining_matches = max_matches - len(matches)
+#         matched_segments = SegmentHash.objects.filter(hash_value=hash_value, codec_type='video')[:remaining_matches]
+#
+#         if matched_segments.exists():
+#             matched_values = list(matched_segments.values('hash_value', 'audio_video_file_id'))
+#             print(f"Matched segments for hash {hash_value}: {matched_values}")
+#             matches.extend(matched_values)
+#
+#     print(f'Final matches: {matches}')
+#     return matches
 def find_matching_fingerprints(uploaded_fingerprints):
     print('find_matching_fingerprints  ==>')
     matches = []
@@ -34,11 +55,12 @@ def find_matching_fingerprints(uploaded_fingerprints):
 
     for hash_value, _ in uploaded_fingerprints:
         print(f"Looking for hash value: {hash_value}")
-        if len(matches) >= max_matches:
-            break
 
         # Query the database for this hash value and limit to the first remaining matches needed
         remaining_matches = max_matches - len(matches)
+        if remaining_matches <= 0:
+            break
+
         matched_segments = SegmentHash.objects.filter(hash_value=hash_value, codec_type='video')[:remaining_matches]
 
         if matched_segments.exists():
@@ -46,8 +68,8 @@ def find_matching_fingerprints(uploaded_fingerprints):
             print(f"Matched segments for hash {hash_value}: {matched_values}")
             matches.extend(matched_values)
 
-    print(f'Final matches: {matches}')
-    return matches
+    print(f'Final matches: {matches[:max_matches]}')
+    return matches[:max_matches]
 
 
 def get_media_duration(file_path):
